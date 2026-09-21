@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Генератор паролей — DevGeek.IT</title>
+
+<style>
+    ::-webkit-scrollbar { width: 0.625rem; height: 0.625rem; }
+    ::-webkit-scrollbar-thumb {
+        background: #111; border-radius: 0.3125rem;
+        box-shadow: inset 0.125rem 0.125rem 0.125rem rgba(255,255,255,.25),
+                    inset -0.125rem -0.125rem 0.125rem rgba(0,0,0,.25);
+        cursor: default;
+    }
+    ::-webkit-scrollbar-track { background: #333; }
+    ::selection { background: #fff; color: #333; }
+
+    html, body { margin: 0; background: #000; }
+
+    #canvas {
+        position: fixed; inset: 0;
+        width: 100vw; height: 100vh;
+        display: block; background: #000;
+        touch-action: none; z-index: 0;
+    }
+
+    body {
+        min-height: 100vh;
+        display: flex; justify-content: center; align-items: flex-start;
+        padding: 28px 18px 48px; overflow-x: hidden;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #e8f1ff;
+    }
+
+    :root {
+        --neon-1: #00ffd5;
+        --neon-2: #7a00ff;
+        --neon-3: #00b3ff;
+        --muted: #8ea3c0;
+        --ok: #48ff9e;
+        --warn: #ffd23b;
+        --bad: #ff3b5c;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* ══════════ КНОПКА МУЗЫКИ ══════════ */
+    .music-btn {
+        position: fixed;
+        top: 20px; right: 20px;
+        width: 48px; height: 48px;
+        border-radius: 50%;
+        background: rgba(6, 9, 17, 0.72);
+        border: 1px solid rgba(0, 255, 213, 0.45);
+        color: #00ffd5;
+        cursor: pointer;
+        display: grid; place-items: center;
+        z-index: 20;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 0 18px rgba(0, 255, 213, 0.25);
+        transition: all .25s ease;
+        padding: 0;
+    }
+    .music-btn:hover {
+        border-color: rgba(0, 255, 213, 0.95);
+        box-shadow: 0 0 26px rgba(0, 255, 213, 0.6);
+        transform: scale(1.08);
+    }
+    .music-btn:active { transform: scale(0.94); }
+    .music-btn svg { display: block; }
+    .music-btn .icon-on  { display: none; }
+    .music-btn .icon-off { display: block; }
+    .music-btn.playing .icon-on  { display: block; }
+    .music-btn.playing .icon-off { display: none; }
+    .music-btn.playing {
+        border-color: rgba(0, 255, 213, 0.95);
+        animation: musicPulse 3s ease-in-out infinite;
+    }
+    @keyframes musicPulse {
+        0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 213, 0.45); }
+        50%      { box-shadow: 0 0 34px rgba(0, 255, 213, 0.85); }
+    }
+    @media (max-width: 560px) {
+        .music-btn { top: 12px; right: 12px; width: 42px; height: 42px; }
+    }
+
+    /* ══════════ КАРТОЧКА ══════════ */
+    .card {
+        position: relative; z-index: 2;
+        width: min(560px, 100%);
+        padding: 30px 28px 22px;
+        border-radius: 24px;
+        background: rgba(6, 9, 17, 0.55);
+        border: 1px solid rgba(120, 200, 255, 0.16);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        box-shadow:
+            0 28px 70px rgba(0,0,0,.65),
+            0 0 0 1px rgba(255,255,255,.03) inset,
+            0 1px 0 rgba(255,255,255,.06) inset;
+        animation: cardIn .7s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes cardIn {
+        from { opacity: 0; transform: translateY(26px) scale(.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .brand { text-align: center; margin-bottom: 18px; }
+    .logo {
+        display: inline-block; font-size: 1.65rem; font-weight: 800;
+        letter-spacing: -.02em;
+        background: linear-gradient(100deg,#fff 0%, var(--neon-1) 45%, var(--neon-3) 75%, var(--neon-2) 100%);
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 18px rgba(0,255,213,.28));
+    }
+    .logo .dot, .logo .it { -webkit-text-fill-color: var(--neon-1); }
+    .brand h1 {
+        margin: 6px 0 0; font-size: 1.02rem; font-weight: 600;
+        letter-spacing: .16em; text-transform: uppercase; color: #cfe3ff;
+    }
+    .tagline { margin: 8px 0 0; font-size: .76rem; line-height: 1.5; color: var(--muted); }
+
+    .compliance-badges {
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 7px; margin: 14px 0 4px;
+    }
+    .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 11px; border-radius: 999px;
+        font-size: .66rem; font-weight: 700;
+        letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+        border: 1px solid rgba(0,255,213,.3);
+        background: rgba(0,255,213,.08); color: #a8f5e4;
+        transition: all .25s ease;
+    }
+    .badge--blue   { border-color: rgba(0,179,255,.35);  background: rgba(0,179,255,.08); color: #a9dfff; }
+    .badge--purple { border-color: rgba(122,0,255,.35);  background: rgba(122,0,255,.1);  color: #d4b0ff; }
+
+    .output-wrap {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 14px 14px 18px; border-radius: 14px;
+        background: rgba(0,0,0,.48);
+        border: 1px solid rgba(120,200,255,.16);
+        box-shadow: 0 0 26px rgba(0,255,213,.05) inset;
+        transition: border-color .3s, box-shadow .3s;
+    }
+    .output-wrap:hover {
+        border-color: rgba(0,255,213,.4);
+        box-shadow: 0 0 30px rgba(0,255,213,.12) inset;
+    }
+    .password-output {
+        flex: 1; min-width: 0;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        font-size: 1.14rem; font-weight: 600;
+        letter-spacing: .055em; line-height: 1.4;
+        color: #eaf7ff; word-break: break-all;
+        text-shadow: 0 0 14px rgba(0,255,213,.28);
+        user-select: all; cursor: pointer;
+    }
+    .icon-btn {
+        flex: none; width: 42px; height: 42px;
+        display: grid; place-items: center;
+        border: 1px solid rgba(120,200,255,.2);
+        border-radius: 11px;
+        background: rgba(255,255,255,.04);
+        color: #a9c6e6; cursor: pointer;
+        transition: all .22s ease;
+    }
+    .icon-btn:hover {
+        color: #04121a;
+        background: linear-gradient(135deg,var(--neon-1),var(--neon-3));
+        border-color: transparent;
+        box-shadow: 0 0 22px rgba(0,255,213,.55);
+        transform: translateY(-1px);
+    }
+    .icon-btn:active { transform: scale(.94); }
+
+    .strength { margin-top: 14px; }
+    .strength-bar {
+        height: 6px; border-radius: 999px;
+        background: rgba(255,255,255,.08); overflow: hidden;
+    }
+    .strength-bar span {
+        display: block; width: 0%; height: 100%; border-radius: 999px;
+        background: var(--bad);
+        transition: width .4s cubic-bezier(.22,1,.36,1), background .4s ease;
+    }
+    .strength-meta {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 7px; font-size: .74rem;
+        letter-spacing: .04em; color: var(--muted);
+    }
+    #strengthValue { font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+    .length-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        margin: 20px 0 8px; font-size: .82rem;
+        letter-spacing: .05em; color: #b9cde6;
+    }
+    .length-value {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 1.1rem; font-weight: 700;
+        color: var(--neon-1); text-shadow: 0 0 14px rgba(0,255,213,.5);
+    }
+    input[type=range] {
+        -webkit-appearance: none; appearance: none;
+        width: 100%; height: 6px; border-radius: 999px;
+        outline: none; cursor: pointer;
+        background:
+            linear-gradient(90deg,var(--neon-1),var(--neon-2)) 0 0/var(--fill,25%) 100% no-repeat,
+            rgba(255,255,255,.1);
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: #fff; border: 3px solid #080c16;
+        box-shadow: 0 0 14px rgba(0,255,213,.9), 0 0 28px rgba(122,0,255,.55);
+        transition: transform .15s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type=range]::-moz-range-thumb {
+        width: 16px; height: 16px; border-radius: 50%;
+        background: #fff; border: 3px solid #080c16;
+        box-shadow: 0 0 14px rgba(0,255,213,.9), 0 0 28px rgba(122,0,255,.55);
+        cursor: pointer;
+    }
+    input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: transparent; }
+
+    .options {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 9px 14px; margin: 20px 0 22px;
+    }
+    .opt {
+        display: flex; align-items: center; gap: 9px;
+        font-size: .79rem; color: #bfd3ea;
+        cursor: pointer; user-select: none;
+        transition: color .2s;
+    }
+    .opt:hover { color: #fff; }
+    .opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .opt .box {
+        position: relative; flex: none;
+        width: 19px; height: 19px; border-radius: 6px;
+        border: 1px solid rgba(255,255,255,.22);
+        background: rgba(255,255,255,.04);
+        transition: all .2s ease;
+    }
+    .opt input:checked + .box {
+        border-color: transparent;
+        background: linear-gradient(135deg,var(--neon-1),var(--neon-2));
+        box-shadow: 0 0 14px rgba(0,255,213,.55);
+    }
+    .opt input:checked + .box::after {
+        content: ''; position: absolute;
+        left: 6px; top: 2px; width: 5px; height: 10px;
+        border: solid #04121a; border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+    .opt b { color: #7fe6d4; font-weight: 600; }
+
+    .glow-on-hover {
+        position: relative; width: 100%; height: 58px;
+        border: none; outline: none; background: #111;
+        border-radius: 13px; cursor: pointer; z-index: 0;
+        color: #fff; font-family: inherit;
+        font-size: .94rem; font-weight: 800;
+        letter-spacing: .16em; text-transform: uppercase;
+        transition: transform .15s ease;
+        box-shadow: 0 0 20px rgba(0,0,0,.8);
+    }
+    .glow-on-hover:hover  { transform: scale(1.02); }
+    .glow-on-hover:active { transform: scale(.965); }
+    .glow-on-hover::before {
+        content: ''; position: absolute;
+        top: -2px; left: -2px;
+        width: calc(100% + 4px); height: calc(100% + 4px);
+        background: linear-gradient(45deg,
+            #ff0000,#ff7300,#fffb00,#48ff00,
+            #00ffd5,#002bff,#7a00ff,#ff00c8,#ff0000);
+        background-size: 400% 400%;
+        z-index: -1; filter: blur(6px); border-radius: 13px;
+        opacity: 0; transition: opacity .35s ease-in-out;
+        animation: glowing 20s linear infinite;
+    }
+    .glow-on-hover:hover::before { opacity: 1; }
+    .glow-on-hover::after {
+        content: ''; position: absolute; inset: 0;
+        background: #111; z-index: -1; border-radius: 13px;
+        transition: background .3s ease;
+    }
+    .glow-on-hover:active::after { background: transparent; }
+    @keyframes glowing {
+        0%   { background-position: 0% 0%; }
+        50%  { background-position: 100% 100%; }
+        100% { background-position: 0% 0%; }
+    }
+
+    .copy-main-btn {
+        position: relative;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        width: 100%; height: 54px; margin-top: 12px;
+        border: 1px solid rgba(0,255,213,.45);
+        border-radius: 13px;
+        background: rgba(0,255,213,.08);
+        color: #d9fff8;
+        font-family: inherit;
+        font-size: .88rem; font-weight: 800;
+        letter-spacing: .14em; text-transform: uppercase;
+        cursor: pointer; overflow: hidden;
+        transition: all .22s ease;
+    }
+    .copy-main-btn:hover {
+        background: rgba(0,255,213,.16);
+        border-color: rgba(0,255,213,.85);
+        color: #ffffff;
+        box-shadow: 0 0 30px rgba(0,255,213,.35);
+        transform: translateY(-2px);
+    }
+    .copy-main-btn:active { transform: translateY(0) scale(.98); }
+    .copy-main-btn.success {
+        background: rgba(72,255,158,.2);
+        border-color: #48ff9e;
+        color: #eaffef;
+        box-shadow: 0 0 34px rgba(72,255,158,.55);
+    }
+
+    .subscribe-btn {
+        position: relative; display: flex;
+        align-items: center; justify-content: center; gap: 10px;
+        width: 100%; height: 54px; margin-top: 12px;
+        border-radius: 13px; overflow: hidden;
+        text-decoration: none;
+        font-size: .83rem; font-weight: 800;
+        letter-spacing: .14em; text-transform: uppercase;
+        color: #fff;
+        background: linear-gradient(120deg,#7a00ff 0%,#4b00d6 45%,#00b3ff 100%);
+        background-size: 200% 200%;
+        box-shadow: 0 0 26px rgba(122,0,255,.42);
+        transition: transform .18s ease, box-shadow .3s ease;
+        animation: subGradient 8s ease infinite;
+    }
+    @keyframes subGradient {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .subscribe-btn::before {
+        content: ''; position: absolute;
+        top: 0; left: -120%; width: 60%; height: 100%;
+        background: linear-gradient(100deg,transparent,rgba(255,255,255,.38),transparent);
+        transform: skewX(-20deg); transition: left .65s ease;
+    }
+    .subscribe-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 40px rgba(122,0,255,.8), 0 0 70px rgba(0,179,255,.35);
+    }
+    .subscribe-btn:hover::before { left: 130%; }
+    .subscribe-btn:active { transform: translateY(0) scale(.98); }
+    .subscribe-btn svg, .subscribe-btn span { position: relative; z-index: 1; }
+
+    .info-section {
+        margin-top: 22px; padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,.07);
+    }
+    .info-title {
+        display: flex; align-items: center; gap: 8px;
+        font-size: .78rem; font-weight: 700;
+        letter-spacing: .14em; text-transform: uppercase;
+        color: #a9dfff; margin: 0 0 12px;
+    }
+    .info-title::before {
+        content: ''; width: 4px; height: 16px; border-radius: 2px;
+        background: linear-gradient(180deg,var(--neon-1),var(--neon-2));
+        box-shadow: 0 0 10px rgba(0,255,213,.6);
+    }
+    .info-text {
+        font-size: .78rem; line-height: 1.65;
+        color: #b6c8de; margin: 0 0 10px;
+    }
+    .info-text strong { color: #eaf7ff; font-weight: 700; }
+    .info-text em { color: #7fe6d4; font-style: normal; }
+
+    .gen-table {
+        width: 100%; border-collapse: separate; border-spacing: 0;
+        font-size: .72rem; margin-top: 4px;
+        border-radius: 12px; overflow: hidden;
+        border: 1px solid rgba(120,200,255,.12);
+    }
+    .gen-table thead { background: rgba(0,255,213,.06); }
+    .gen-table th {
+        padding: 9px 10px; text-align: left;
+        font-weight: 700; font-size: .66rem;
+        letter-spacing: .08em; text-transform: uppercase;
+        color: #7fe6d4;
+        border-bottom: 1px solid rgba(120,200,255,.12);
+    }
+    .gen-table td {
+        padding: 9px 10px; color: #b6c8de; line-height: 1.5;
+        border-bottom: 1px solid rgba(255,255,255,.05);
+        vertical-align: top;
+    }
+    .gen-table tr:last-child td { border-bottom: none; }
+    .gen-table .tag-ok   { color: var(--ok);   font-weight: 700; }
+    .gen-table .tag-bad  { color: var(--bad);  font-weight: 700; }
+    .gen-table code {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: .95em; padding: 1px 5px; border-radius: 4px;
+        background: rgba(0,0,0,.35); color: #7fe6d4;
+    }
+
+    .recs {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 10px; margin-top: 6px;
+    }
+    .rec {
+        display: flex; gap: 9px;
+        padding: 10px 12px; border-radius: 11px;
+        background: rgba(255,255,255,.035);
+        border: 1px solid rgba(120,200,255,.1);
+        font-size: .73rem; line-height: 1.5; color: #b6c8de;
+    }
+    .rec b { color: #eaf7ff; }
+
+    .footer {
+        margin-top: 20px; padding-top: 14px;
+        border-top: 1px solid rgba(255,255,255,.06);
+        text-align: center; font-size: .7rem;
+        letter-spacing: .1em; color: #62789a;
+    }
+
+    .toast {
+        position: fixed; left: 50%; bottom: 34px; z-index: 100;
+        padding: 11px 22px; border-radius: 999px;
+        font-size: .85rem; font-weight: 600; color: #d9fff8;
+        background: rgba(0,255,213,.12);
+        border: 1px solid rgba(0,255,213,.42);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 0 30px rgba(0,255,213,.28);
+        opacity: 0; pointer-events: none;
+        transform: translate(-50%,18px);
+        transition: opacity .3s ease, transform .3s cubic-bezier(.22,1,.36,1);
+    }
+    .toast.show { opacity: 1; transform: translate(-50%,0); }
+
+    @media (max-width: 560px) {
+        .card { padding: 24px 20px 18px; border-radius: 20px; }
+        .logo { font-size: 1.42rem; }
+        .password-output { font-size: 1rem; }
+        .options { grid-template-columns: 1fr; }
+        .recs { grid-template-columns: 1fr; }
+        .glow-on-hover { height: 54px; font-size: .85rem; letter-spacing: .12em; }
+        .copy-main-btn { height: 50px; font-size: .8rem; letter-spacing: .1em; }
+    }
+</style>
+</head>
+
+<body>
+  <canvas id="canvas"></canvas>
+
+  <!-- ══════════ КНОПКА МУЗЫКИ ══════════ -->
+  <button class="music-btn" id="musicBtn" type="button" title="Включить фоновую музыку" aria-label="Фоновая музыка">
+    <!-- выключено: динамик без волн -->
+    <svg class="icon-off" viewBox="0 0 24 24" width="22" height="22" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <line x1="23" y1="9" x2="17" y2="15"></line>
+      <line x1="17" y1="9" x2="23" y2="15"></line>
+    </svg>
+    <!-- включено: динамик с волнами -->
+    <svg class="icon-on" viewBox="0 0 24 24" width="22" height="22" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+    </svg>
+  </button>
+
+  <main class="card">
+    <header class="brand">
+      <div class="logo">DevGeek<span class="dot">.</span><span class="it">IT</span></div>
+      <h1>Генератор паролей</h1>
+      <p class="tagline">Криптостойкая генерация на CSPRNG — ничего не отправляется на сервер</p>
+      <div class="compliance-badges">
+        <span class="badge">CSPRNG</span>
+        <span class="badge badge--blue">Web Crypto API</span>
+        <span class="badge badge--purple">Локально в браузере</span>
+      </div>
+    </header>
+
+    <div class="output-wrap">
+      <output class="password-output" id="passwordOutput" aria-live="polite">••••••••••••••••</output>
+      <button class="icon-btn" id="copyBtn" type="button" aria-label="Скопировать пароль" title="Скопировать">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="12" height="12" rx="2.5"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="strength">
+      <div class="strength-bar"><span id="strengthFill"></span></div>
+      <div class="strength-meta">
+        <span id="strengthLabel">Надёжность</span>
+        <span id="strengthValue">—</span>
+      </div>
+    </div>
+
+    <div class="length-row">
+      <label for="lengthRange">Длина пароля</label>
+      <span class="length-value" id="lengthValue">20</span>
+    </div>
+    <input type="range" id="lengthRange" min="8" max="64" value="20" step="1" />
+
+    <div class="options">
+      <label class="opt"><input type="checkbox" id="optLower" checked><span class="box"></span><span>Строчные <b>a-z</b></span></label>
+      <label class="opt"><input type="checkbox" id="optUpper" checked><span class="box"></span><span>Заглавные <b>A-Z</b></span></label>
+      <label class="opt"><input type="checkbox" id="optDigits" checked><span class="box"></span><span>Цифры <b>0-9</b></span></label>
+      <label class="opt"><input type="checkbox" id="optSymbols" checked><span class="box"></span><span>Символы <b>!@#</b></span></label>
+      <label class="opt"><input type="checkbox" id="optNoSimilar" checked><span class="box"></span><span>Без похожих <b>il1O0</b></span></label>
+    </div>
+
+    <button class="glow-on-hover" id="generateBtn" type="button">Сгенерировать</button>
+
+    <button class="copy-main-btn" id="copyMainBtn" type="button">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="12" height="12" rx="2.5"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+      <span id="copyMainBtnLabel">Скопировать пароль</span>
+    </button>
+
+    <a class="subscribe-btn" href="https://max.ru/channel_DevGeekIT" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+        <path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"></path>
+      </svg>
+      <span>Подписаться на MAX</span>
+    </a>
+
+    <section class="info-section">
+      <h2 class="info-title">Что определяет криптостойкость</h2>
+      <p class="info-text">
+        Криптостойкость генератора определяется <strong>CSPRNG</strong> — криптостойким
+        источником случайности. Для обычных аккаунтов важнее <em>уникальность</em>,
+        <em>длина от 16 символов</em> и <em>MFA</em>.
+      </p>
+      <table class="gen-table">
+        <thead>
+          <tr><th>Тип</th><th>Как работает</th><th>Когда подходит</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="tag-ok">CSPRNG</span></td><td>Источник ОС: <code>BCryptGenRandom</code>, <code>getrandom()</code>, <code>secrets</code></td><td>Лучший вариант</td></tr>
+          <tr><td>Случайные строки</td><td>Буквы + цифры + символы</td><td>Если на CSPRNG</td></tr>
+          <tr><td><span class="tag-bad">Псевдослучайный</span></td><td><code>Math.random()</code>, <code>rand()</code></td><td>Не для паролей</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="info-section">
+      <h2 class="info-title">Практический стандарт</h2>
+      <div class="recs">
+        <div class="rec">Длина <b>20–32</b> символа</div>
+        <div class="rec"><b>Отдельный</b> пароль на сервис</div>
+        <div class="rec"><b>Менеджер</b> паролей</div>
+        <div class="rec"><b>MFA</b>: аутентификатор</div>
+      </div>
+    </section>
+
+    <footer class="footer">© <span id="year">2026</span> DevGeek.IT · Пароли генерируются локально</footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">Скопировано</div>
+
+  <!-- ══════════ ШЕЙДЕР ══════════ -->
+  <script type="x-shader/x-fragment">#version 300 es
+/*********
+* made by Matthias Hurrle (@atzedent)
+*/
+precision highp float;
+out vec4 O;
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+#define FC gl_FragCoord.xy
+#define R resolution
+#define T (time+113.+.2*wheel.y/MN)
+#define S smoothstep
+#define N normalize
+#define MN min(R.x,R.y)
+#define hue(a) (.5+.5*sin(3.14*(a)+vec3(1,2,3)))
+#define LP vec3(1.+1.*sin(-T),2.-2.*cos(T),-3.-4.*sin(sin(T)))
+vec3 render(vec2 uv);
+void main() { O=vec4(render((FC-.5*R)/MN),1); } 
+float smin(float a, float b, float k) {
+	k*=log(2.);
+	float x=b-a;
+	return a+x/(1.-exp2(x/k));
+}
+float box(vec3 p, vec3 s, float r) {
+	p=abs(p)-s+r;
+	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
+}
+float glow;
+float map(vec3 p, bool g) {
+	float d=5e5;
+	if (g) {
+		d=length(p-LP+vec3(.2,.2,0))-.02;
+		glow+=.05/(.05+d*d*80.);
+	}
+	p.z-=T*3.5;
+	p=fract(p)-.5;
+	vec4 k=vec4(1,.05,.03,.1);
+	float r=1e-2;
+	return min(d,smin(
+		box(p,k.www,r),
+		min(
+			box(p,k.zxz,r),
+			min(box(p,k.xyz,r),box(p,k.yzx,r))
+		),.01
+	));
+}
+vec3 norm(vec3 p) {
+	float h=1e-3; vec2 k=vec2(-1,1);
+	return N(
+		k.xyy*map(p+k.xyy*h,false)+
+		k.yxy*map(p+k.yxy*h,false)+
+		k.yyx*map(p+k.yyx*h,false)+
+		k.xxx*map(p+k.xxx*h,false)
+	);
+}
+bool march(inout vec3 p, vec3 rd, out float dd, out float at) {
+	for (float i; i++<400.;) {
+		float d=map(p,true);
+		if (abs(d)<1e-3) return true;
+		if (d>100.) return false;
+		p+=rd*d;
+		dd+=d;
+		at+=.05*(.05/dd);
+	}
+}
+vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
+	vec3 up=vec3(0,1,0),
+	f=N(t-p),
+	r=N(cross(up,f)),
+	u=N(cross(f,r));
+	return mat3(r,u,f)*N(vec3(uv,z));
+}
+mat3 rotX(float a) {
+  float s=sin(a), c=cos(a);
+  return mat3(vec3(1,0,0),vec3(0,c,-s),vec3(0,s,c));
+}
+mat3 rotY(float a) {
+  float s=sin(a), c=cos(a);
+  return mat3(vec3(c,0,s),vec3(0,1,0),vec3(-s,0,c));
+}
+float rnd(float a) {
+	vec2 p=fract(a*vec2(12.9898,78.233));
+	p+=dot(p,p+34.56);
+	return fract(p.x*p.y);
+}
+float curve(float t, float e) {
+	t/=e;
+	return mix(
+		rnd(floor(t)),
+		rnd(floor(t)+1.),
+		pow(S(.0,1.,fract(t)),10.)
+	);
+}
+vec3 org() {
+	float k=-.2*sin(sin(T)), drama=3.14*curve(T*.2,2.);
+	vec2 m=move/R;
+	vec3 ro=vec3(0,0,.1);
+	ro*=rotX(m.y*6.3-k-.1+drama/12.)*rotY(m.x*6.3-.45-sin(cos(T*.2-k+drama)));
+	return ro;
+}
+float shadow(vec3 p, vec3 lp) {
+	float shd=1., maxd=length(lp-p);
+	vec3 l=N(lp-p);
+	for (float i=1e-3; i<maxd;) {
+		float d=map(p+l*i,false);
+		if (d<1e-3) {
+			shd=.0;
+			break;
+		}
+		shd=min(shd,64.*d/i);
+		i+=d;
+	}
+	return shd;
+}
+float calcAO(vec3 p, vec3 n) {
+	float occ=.0, sca=1.;
+	for (float i=.0; i<5.; i++) {
+		float
+		h=.01+i*.09,
+		d=map(p+h*n,false);
+		occ+=(h-d)*sca;
+		sca*=.55;
+		if (occ>.35) break;
+	}
+	return clamp(1.-3.*occ,.0,1.)*(.5+.5*n.y);
+}
+vec3 render(vec2 uv) {
+	vec3 col=vec3(0),
+	p=org(), ro=p,
+	rd=dir(uv,p,vec3(0),1.);
+	float dd, at;
+	if (march(p,rd,dd,at)) {
+		vec3 n=norm(p), lp=LP, l=N(lp-p),
+		e=N(ro-p), r=reflect(-l,n);
+		float ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125),
+		ao=calcAO(p,n), shd=shadow(p+n*5e-2,lp);
+		col+=shd*atten*vec3(.1,.095,.09)+clamp(dot(l,n),.0,1.)*atten*ao*shd;
+		col+=pow(max(.0,dot(r,e)),8.)*atten*ao*shd;
+		col+=clamp(dot(-rd,l),.0,1.)*ao*atten*1.2;
+	}
+	float k=mix(max(.2,1.-distance(LP,ro)),.25,fract(sin(dot(ro,vec3(12.9898,78.233,156.345)))*345678.)),
+	f=S(1.,.0,clamp(dd/200.,.0,1.));
+	vec3 tint=vec3(1.2,.95,.9);
+	col+=tint*at*k;
+	col+=hue(3.14*k+f*f*f)*k*k;
+	col=mix(col,vec3(1,.95,.9),S(.0,50.,distance(p,ro)));
+	col=tanh(col*col);
+	col=sqrt(col);
+	col=mix(sqrt(col)*1.2,col,clamp(S(-.1,.2,dot(uv,uv)),.0,1.));
+	col+=tanh(tint*glow);
+	vec2 c=FC/R;
+	c*=1.-c.yx;
+	float vig=c.x*c.y*25.;
+	vig=pow(vig,.25);
+	col*=vig;
+	return col;
+}</script>
+
+  <!-- ══════════ JS ФОНА ══════════ -->
+  <script>
+    let playOnLoad = true
+    let resolution = .5
+    let startTime = 0
+    let elapsedTime = 0
+    let interactionFrameRequested = false
+    let dpr = Math.max(1, resolution * window.devicePixelRatio)
+    let frm, source, renderer, pointers
+    window.onload = init
+
+    function resize() {
+      const { innerWidth: width, innerHeight: height } = window
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      if (renderer) { renderer.updateScale(dpr); renderInteractionFrame() }
+    }
+    function update() {
+      renderer.updateMouse(pointers.first)
+      renderer.updatePointerCount(pointers.count)
+      renderer.updatePointerCoords(pointers.coords)
+      renderer.updateMove(pointers.move)
+      renderer.updateZoom(pointers.zoomed)
+      renderer.updateWheel(pointers.wheel)
+    }
+    function loop(now) {
+      elapsedTime = now - startTime
+      update()
+      renderer.render(elapsedTime)
+      frm = requestAnimationFrame(loop)
+    }
+    const play = () => {
+      if (frm) return
+      startTime = performance.now() - elapsedTime
+      loop(performance.now())
+    }
+    function renderInteractionFrame() {
+      if (frm || interactionFrameRequested || !renderer || !pointers) return
+      interactionFrameRequested = true
+      requestAnimationFrame(() => {
+        interactionFrameRequested = false
+        if (frm) return
+        update()
+        renderer.render(elapsedTime)
+      })
+    }
+    function init() {
+      source = document.querySelector("script[type='x-shader/x-fragment']")
+      renderer = new Renderer(canvas, dpr)
+      pointers = new PointerHandler(canvas, dpr)
+      renderer.setup()
+      renderer.init()
+      pointers.onchange = renderInteractionFrame
+      resize()
+      if (renderer.test(source.textContent) === null) {
+        renderer.updateShader(source.textContent)
+      }
+      elapsedTime = 0
+      startTime = performance.now()
+      play()
+      window.onresize = resize
+    }
+
+    class Renderer {
+      #vertexSrc = "#version 300 es\nprecision highp float;\nin vec4 position;\nvoid main(){gl_Position=position;}"
+      #fragmtSrc = "#version 300 es\nprecision highp float;\nout vec4 O;\nuniform float time;\nuniform vec2 resolution;\nvoid main() {\n\tvec2 uv=gl_FragCoord.xy/resolution;\n\tO=vec4(uv,sin(time)*.5+.5,1);\n}"
+      #vertices = [-1, 1, -1, -1, 1, 1, 1, -1]
+      constructor(canvas, scale) {
+        this.canvas = canvas; this.scale = scale
+        this.gl = canvas.getContext("webgl2")
+        if (!this.gl) { console.warn('WebGL2 не поддерживается'); return }
+        this.gl.viewport(0, 0, canvas.width * scale, canvas.height * scale)
+        this.shaderSource = this.#fragmtSrc
+        this.mouseMove = [0, 0]; this.mouseCoords = [0, 0]
+        this.pointerCoords = [0, 0]; this.nbrOfPointers = 0
+        this.zoom = 0; this.wheel = [0, 0]
+      }
+      get defaultSource() { return this.#fragmtSrc }
+      updateShader(s) { this.reset(); this.shaderSource = s; this.setup(); this.init() }
+      updateMove(d) { this.mouseMove = d }
+      updateZoom(z) { this.zoom = z }
+      updateWheel(w) { this.wheel = w }
+      updateMouse(c) { this.mouseCoords = c }
+      updatePointerCoords(c) { this.pointerCoords = c }
+      updatePointerCount(n) { this.nbrOfPointers = n }
+      updateScale(s) { this.scale = s; if (this.gl) this.gl.viewport(0, 0, this.canvas.width * s, this.canvas.height * s) }
+      compile(shader, src) {
+        const gl = this.gl
+        gl.shaderSource(shader, src); gl.compileShader(shader)
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(shader))
+      }
+      test(src) {
+        let result = null
+        const gl = this.gl
+        const shader = gl.createShader(gl.FRAGMENT_SHADER)
+        gl.shaderSource(shader, src); gl.compileShader(shader)
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) result = gl.getShaderInfoLog(shader)
+        if (!gl.getShaderParameter(shader, gl.DELETE_STATUS)) gl.deleteShader(shader)
+        return result
+      }
+      reset() {
+        const { gl, program, vs, fs } = this
+        if (!program || gl.getProgramParameter(program, gl.DELETE_STATUS)) return
+        if (!gl.getShaderParameter(vs, gl.DELETE_STATUS)) { gl.detachShader(program, vs); gl.deleteShader(vs) }
+        if (!gl.getShaderParameter(fs, gl.DELETE_STATUS)) { gl.detachShader(program, fs); gl.deleteShader(fs) }
+        gl.deleteProgram(program)
+      }
+      setup() {
+        const gl = this.gl
+        this.vs = gl.createShader(gl.VERTEX_SHADER)
+        this.fs = gl.createShader(gl.FRAGMENT_SHADER)
+        this.compile(this.vs, this.#vertexSrc)
+        this.compile(this.fs, this.shaderSource)
+        this.program = gl.createProgram()
+        gl.attachShader(this.program, this.vs)
+        gl.attachShader(this.program, this.fs)
+        gl.linkProgram(this.program)
+        if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(this.program))
+      }
+      init() {
+        const { gl, program } = this
+        this.buffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.#vertices), gl.STATIC_DRAW)
+        const position = gl.getAttribLocation(program, "position")
+        gl.enableVertexAttribArray(position)
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+        program.resolution = gl.getUniformLocation(program, "resolution")
+        program.time = gl.getUniformLocation(program, "time")
+        program.move = gl.getUniformLocation(program, "move")
+        program.wheel = gl.getUniformLocation(program, "wheel")
+      }
+      render(now = 0) {
+        const { gl, program, buffer, canvas, mouseMove, wheel } = this
+        if (!program || gl.getProgramParameter(program, gl.DELETE_STATUS)) return
+        gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.useProgram(program)
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+        gl.uniform2f(program.resolution, canvas.width, canvas.height)
+        gl.uniform1f(program.time, now * 1e-3)
+        gl.uniform2f(program.move, ...mouseMove)
+        gl.uniform2f(program.wheel, ...wheel)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+      }
+    }
+
+    class PointerHandler {
+      constructor(element, scale) {
+        this.scale = scale; this.active = false; this.onchange = null
+        this.pointers = new Map(); this.lastCoords = [0, 0]
+        this.moves = [0, 0]; this.zoom = 0; this.wheelDelta = 0
+        this.wheelOffset = 0; this.ex = 0; this.ey = 0
+        const emit = () => { if (typeof this.onchange === 'function') this.onchange() }
+        const map = (el, s, x, y) => [x * s, el.height - y * s]
+        element.addEventListener("pointerdown", (e) => {
+          this.active = true
+          this.pointers.set(e.pointerId, map(element, this.getScale(), e.clientX, e.clientY))
+          this.ex = e.clientX; this.ey = e.clientY
+          emit()
+        })
+        element.addEventListener("pointerup", (e) => {
+          if (this.count === 1) this.lastCoords = this.first
+          this.pointers.delete(e.pointerId)
+          this.active = this.pointers.size > 0
+          emit()
+        })
+        element.addEventListener("pointerleave", (e) => {
+          if (this.count === 1) this.lastCoords = this.first
+          this.pointers.delete(e.pointerId)
+          this.active = this.pointers.size > 0
+          emit()
+        })
+        element.addEventListener("pointermove", (e) => {
+          if (!this.active) return
+          const mapped = map(element, this.getScale(), e.clientX, e.clientY)
+          this.lastCoords = mapped
+          this.pointers.set(e.pointerId, mapped)
+          this.moves = [this.moves[0] + (e.clientX - this.ex), this.moves[1] + (this.ey - e.clientY)]
+          this.ex = e.clientX; this.ey = e.clientY
+          emit()
+        })
+        element.addEventListener("wheel", (e) => {
+          this.zoom = lerp(this.zoom, Math.max(-1, Math.min(1, this.zoom + e.deltaY)), .05)
+          if (this.wheelDelta * e.deltaY < 0) this.wheelDelta = e.deltaY
+          else this.wheelDelta = lerp(this.wheelDelta, e.deltaY, .05)
+          this.wheelOffset += this.wheelDelta
+          emit()
+        }, { passive: true })
+      }
+      getScale() { return this.scale }
+      updateScale(s) { this.scale = s }
+      get count() { return this.pointers.size }
+      get move() { return this.moves }
+      get zoomed() { return this.zoom }
+      get wheel() { return [this.wheelDelta, this.wheelOffset] || [0, 0] }
+      get coords() {
+        return this.pointers.size > 0
+          ? Array.from(this.pointers.values()).map((p) => [...p]).flat()
+          : [0, 0]
+      }
+      get first() { return this.pointers.values().next().value || this.lastCoords }
+    }
+    function lerp(a, b, t) { return a + (b - a) * t }
+  </script>
+
+  <!-- ══════════ JS ГЕНЕРАТОРА ══════════ -->
+  <script>
+    (function () {
+      'use strict';
+      const CHARSETS = {
+        lower:   'abcdefghijklmnopqrstuvwxyz',
+        upper:   'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        digits:  '0123456789',
+        symbols: '!@#$%^&*()_+-=[]{}<>?/~;,.:|'
+      };
+      const SIMILAR = 'il1IL|oO0';
+
+      const outputEl      = document.getElementById('passwordOutput');
+      const copyBtn       = document.getElementById('copyBtn');
+      const copyMainBtn   = document.getElementById('copyMainBtn');
+      const copyMainLabel = document.getElementById('copyMainBtnLabel');
+      const generateBtn   = document.getElementById('generateBtn');
+      const lengthRange   = document.getElementById('lengthRange');
+      const lengthValue   = document.getElementById('lengthValue');
+      const strengthFill  = document.getElementById('strengthFill');
+      const strengthValue = document.getElementById('strengthValue');
+      const strengthLabel = document.getElementById('strengthLabel');
+      const toastEl       = document.getElementById('toast');
+      const optLower      = document.getElementById('optLower');
+      const optUpper      = document.getElementById('optUpper');
+      const optDigits     = document.getElementById('optDigits');
+      const optSymbols    = document.getElementById('optSymbols');
+      const optNoSimilar  = document.getElementById('optNoSimilar');
+
+      function randomInt(max) {
+        if (max <= 1) return 0;
+        const LIMIT = 4294967296;
+        const bound = Math.floor(LIMIT / max) * max;
+        const buf = new Uint32Array(1);
+        let v;
+        do { crypto.getRandomValues(buf); v = buf[0]; } while (v >= bound);
+        return v % max;
+      }
+      function stripSimilar(str) {
+        let out = '';
+        for (let i = 0; i < str.length; i++) if (SIMILAR.indexOf(str[i]) === -1) out += str[i];
+        return out;
+      }
+      function getActiveSets() {
+        const sets = [], clean = optNoSimilar.checked;
+        if (optLower.checked)   sets.push(clean ? stripSimilar(CHARSETS.lower)  : CHARSETS.lower);
+        if (optUpper.checked)   sets.push(clean ? stripSimilar(CHARSETS.upper)  : CHARSETS.upper);
+        if (optDigits.checked)  sets.push(clean ? stripSimilar(CHARSETS.digits) : CHARSETS.digits);
+        if (optSymbols.checked) sets.push(CHARSETS.symbols);
+        return sets.filter(s => s.length > 0);
+      }
+      function syncRangeFill() {
+        const min = +lengthRange.min, max = +lengthRange.max, val = +lengthRange.value;
+        const pct = ((val - min) / (max - min)) * 100;
+        lengthRange.style.setProperty('--fill', pct + '%');
+        lengthValue.textContent = val;
+      }
+      function updateStrength(entropy) {
+        let label, color;
+        if (entropy < 40)       { label = 'Очень слабый'; color = '#ff3b5c'; }
+        else if (entropy < 60)  { label = 'Слабый';       color = '#ff8a3b'; }
+        else if (entropy < 80)  { label = 'Средний';      color = '#ffd23b'; }
+        else if (entropy < 105) { label = 'Надёжный';     color = '#48ff9e'; }
+        else                    { label = 'Максимум';     color = '#00ffd5'; }
+        const w = Math.min(100, (entropy / 128) * 100);
+        strengthFill.style.width = w + '%';
+        strengthFill.style.background = color;
+        strengthFill.style.boxShadow = '0 0 14px ' + color;
+        strengthValue.textContent = label;
+        strengthValue.style.color = color;
+        strengthLabel.textContent = 'Надёжность · ' + Math.round(entropy) + ' бит';
+      }
+      function generatePassword() {
+        const sets = getActiveSets();
+        if (sets.length === 0) {
+          outputEl.textContent = 'Выберите хотя бы один набор';
+          strengthFill.style.width = '0%';
+          strengthValue.textContent = '—';
+          strengthLabel.textContent = 'Надёжность';
+          showToast('⚠ Отметьте хотя бы один тип');
+          return;
+        }
+        const length = +lengthRange.value;
+        const pool = sets.join('');
+        const chars = [];
+        if (length >= sets.length) {
+          for (let i = 0; i < sets.length; i++) chars.push(sets[i][randomInt(sets[i].length)]);
+        }
+        while (chars.length < length) chars.push(pool[randomInt(pool.length)]);
+        for (let i = chars.length - 1; i > 0; i--) {
+          const j = randomInt(i + 1);
+          const t = chars[i]; chars[i] = chars[j]; chars[j] = t;
+        }
+        outputEl.textContent = chars.join('');
+        updateStrength(length * (Math.log(pool.length) / Math.LN2));
+        resetCopyButton();
+      }
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1900);
+      }
+      function resetCopyButton() {
+        copyMainBtn.classList.remove('success');
+        copyMainLabel.textContent = 'Скопировать пароль';
+      }
+      function markCopied() {
+        copyMainBtn.classList.add('success');
+        copyMainLabel.textContent = '✓ Скопировано';
+        showToast('✓ Пароль скопирован');
+        clearTimeout(copyMainBtn._t);
+        copyMainBtn._t = setTimeout(resetCopyButton, 2200);
+      }
+      function copyPassword() {
+        const text = outputEl.textContent.trim();
+        if (!text || text.indexOf('Выберите') === 0 || text.indexOf('•') === 0) {
+          showToast('Сначала нажмите «Сгенерировать»');
+          return;
+        }
+        const ok = () => markCopied();
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(ok).catch(fallback);
+        } else { fallback(); }
+        function fallback() {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select(); ta.setSelectionRange(0, ta.value.length);
+          try { document.execCommand('copy'); ok(); }
+          catch (e) { showToast('Не удалось скопировать'); }
+          document.body.removeChild(ta);
+        }
+      }
+
+      generateBtn.addEventListener('click', generatePassword);
+      copyBtn.addEventListener('click', copyPassword);
+      copyMainBtn.addEventListener('click', copyPassword);
+      outputEl.addEventListener('click', copyPassword);
+      lengthRange.addEventListener('input', () => { syncRangeFill(); generatePassword(); });
+      [optLower, optUpper, optDigits, optSymbols, optNoSimilar].forEach(cb =>
+        cb.addEventListener('change', generatePassword)
+      );
+
+      document.getElementById('year').textContent = new Date().getFullYear();
+      syncRangeFill();
+      generatePassword();
+    })();
+  </script>
+
+  <!-- ══════════ JS ФОНОВОЙ МУЗЫКИ (Web Audio API) ══════════ -->
+  <script>
+    (function () {
+      'use strict';
+      const btn = document.getElementById('musicBtn');
+      if (!btn) return;
+
+      // ─── Настройки звука ───
+      const VOLUME         = 0.14;   // общая громкость — очень тихо
+      const CHORD_DURATION = 9;      // секунд на один аккорд
+      const FADE_IN        = 2.0;    // сек. плавное включение
+      const FADE_OUT       = 1.2;    // сек. плавное выключение
+      const DETUNE         = 6;      // центов — «хор» из двух осцилляторов
+
+      // ─── Аккорды (Am — F — C — G: классика фэнтези-саундтрека) ───
+      const CHORDS = [
+        { bass: 110.00, notes: [220.00, 261.63, 329.63] }, // Am
+        { bass:  87.31, notes: [174.61, 220.00, 261.63] }, // F
+        { bass: 130.81, notes: [261.63, 329.63, 392.00] }, // C
+        { bass:  98.00, notes: [196.00, 246.94, 293.66] }  // G
+      ];
+
+      let ctx = null, master = null;
+      let running = false;
+      let currentChord = 0;
+      let chordTimer = null;
+
+      function initAudio() {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        master = ctx.createGain();
+        master.gain.value = 0;                     // стартуем с нуля
+
+        // Мягкая «реверберация»: delay + обратная связь
+        const delay = ctx.createDelay();
+        delay.delayTime.value = 0.42;
+        const fb = ctx.createGain();
+        fb.gain.value = 0.42;
+        const wet = ctx.createGain();
+        wet.gain.value = 0.32;
+
+        master.connect(ctx.destination);   // сухой сигнал
+        master.connect(delay);
+        delay.connect(fb);
+        fb.connect(delay);
+        delay.connect(wet);
+        wet.connect(ctx.destination);      // влажный хвост
+      }
+
+      function playNote(freq, when, dur, peak) {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const g = ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+        osc1.frequency.value = freq;
+        osc2.frequency.value = freq;
+        osc1.detune.value =  DETUNE;
+        osc2.detune.value = -DETUNE;
+
+        osc1.connect(g);
+        osc2.connect(g);
+        g.connect(master);
+
+        // мягкое «дыхание» ноты: долгая атака и долгий хвост
+        g.gain.setValueAtTime(0.0001, when);
+        g.gain.exponentialRampToValueAtTime(peak, when + dur * 0.35);
+        g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+        osc1.start(when);
+        osc2.start(when);
+        osc1.stop(when + dur + 0.3);
+        osc2.stop(when + dur + 0.3);
+      }
+
+      function scheduleNextChord() {
+        if (!running || !ctx) return;
+        const start = ctx.currentTime + 0.1;
+        const chord = CHORDS[currentChord];
+
+        // бас — глубже и громче
+        playNote(chord.bass, start, CHORD_DURATION, 0.11);
+        // остальные ноты — с лёгкой задержкой, как «волна»
+        for (let i = 0; i < chord.notes.length; i++) {
+          playNote(chord.notes[i], start + i * 0.15, CHORD_DURATION, 0.055);
+        }
+
+        currentChord = (currentChord + 1) % CHORDS.length;
+        chordTimer = setTimeout(scheduleNextChord, (CHORD_DURATION - 0.6) * 1000);
+      }
+
+      async function start() {
+        if (running) return;
+        if (!ctx) initAudio();
+        if (ctx.state === 'suspended') await ctx.resume();
+
+        running = true;
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+        master.gain.linearRampToValueAtTime(VOLUME, ctx.currentTime + FADE_IN);
+
+        currentChord = 0;
+        scheduleNextChord();
+
+        btn.classList.add('playing');
+        btn.title = 'Выключить музыку';
+      }
+
+      function stop() {
+        if (!running) return;
+        running = false;
+        clearTimeout(chordTimer);
+
+        if (master && ctx) {
+          master.gain.cancelScheduledValues(ctx.currentTime);
+          master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+          master.gain.linearRampToValueAtTime(0, ctx.currentTime + FADE_OUT);
+        }
+        btn.classList.remove('playing');
+        btn.title = 'Включить фоновую музыку';
+      }
+
+      btn.addEventListener('click', () => {
+        running ? stop() : start();
+      });
+
+      // Приглушение, когда вкладка в фоне
+      document.addEventListener('visibilitychange', () => {
+        if (!running || !ctx) return;
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        if (document.hidden) {
+          master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+          master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
+        } else {
+          master.gain.setValueAtTime(0, ctx.currentTime);
+          master.gain.linearRampToValueAtTime(VOLUME, ctx.currentTime + 1.5);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
